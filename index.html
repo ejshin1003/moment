@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>THE MOMENT</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+    
+    <style>
+        body { background-color: #F9F9F7; font-family: 'Inter', sans-serif; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        .serif { font-family: 'Noto Serif KR', serif; font-weight: 300; }
+        .f-warm { filter: sepia(0.2) saturate(1.1); }
+        .f-cool { filter: contrast(1.05) hue-rotate(5deg); }
+        .f-mono { filter: grayscale(1); }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: white; border: 0.5px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: -7px; }
+        .date-text { letter-spacing: 0.05em; font-variant-numeric: tabular-nums; }
+        .pinch-area { touch-action: none; overflow: hidden; }
+        .tab-btn { padding: 8px 0; }
+        .color-picker-input { width: 30px; height: 30px; border: none; border-radius: 50%; background: none; cursor: pointer; padding: 0; }
+        .color-picker-input::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-picker-input::-webkit-color-swatch { border: 1px solid #eee; border-radius: 50%; }
+        .capture-target { position: relative; width: 100%; border-radius: 0px; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const Icon = ({ name, size = 18, className = "" }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={`inline-block align-middle ${className}`}></i>;
+        };
+
+        const getFormattedDate = () => {
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            return `${yy}${mm}${dd} ${hh}:${min}`;
+        };
+
+        function App() {
+            const [entries, setEntries] = useState(() => {
+                try { return JSON.parse(localStorage.getItem('the_moment_v_final_safe') || '[]'); } catch { return []; }
+            });
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [editingEntry, setEditingEntry] = useState(null);
+
+            useEffect(() => { localStorage.setItem('the_moment_v_final_safe', JSON.stringify(entries)); }, [entries]);
+
+            // 핵심 수정: 저장 대신 공유하기 기능
+            const shareCard = async (id) => {
+                const target = document.getElementById(`card-${id}`);
+                try {
+                    const canvas = await html2canvas(target, { 
+                        useCORS: true, 
+                        scale: 3, 
+                        backgroundColor: null,
+                        scrollX: 0,
+                        scrollY: -window.scrollY
+                    });
+
+                    canvas.toBlob(async (blob) => {
+                        const file = new File([blob], `MOMENT_${id}.png`, { type: 'image/png' });
+                        
+                        // 브라우저 공유 기능 지원 여부 확인
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                files: [file],
+                                title: 'THE MOMENT',
+                                text: '오늘의 순간을 공유합니다.'
+                            });
+                        } else {
+                            // 공유가 지원되지 않는 환경(PC 등)에서는 기존처럼 다운로드
+                            const link = document.createElement('a');
+                            link.download = `MOMENT_${id}.png`;
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                        }
+                    }, 'image/png');
+                } catch (err) {
+                    console.error("공유 실패:", err);
+                    alert("공유를 할 수 없는 환경입니다.");
+                }
+            };
+
+            return (
+                <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#F9F9F7]">
+                    <header className="px-8 pt-16 pb-6 flex justify-between items-end">
+                        <div>
+                            <p className="text-[9px] font-medium text-gray-400 tracking-[0.3em] uppercase mb-1">Archive</p>
+                            <h1 className="serif text-2xl tracking-[0.15em] text-black">THE MOMENT</h1>
+                        </div>
+                        <button onClick={() => { setEditingEntry(null); setIsModalOpen(true); }} 
+                                className="w-10 h-10 rounded-full border border-gray-200 text-gray-800 flex items-center justify-center bg-white shadow-sm active:scale-95">
+                            <Icon name="plus" size={20} />
+                        </button>
+                    </header>
+
+                    <main className="flex-1 px-8 pb-10 space-y-12">
+                        {entries.map(e => (
+                            <div key={e?.id} className="animate-in fade-in duration-700">
+                                <div id={`card-${e?.id}`} className="capture-target aspect-[4/5] bg-white shadow-xl shadow-gray-200/50">
+                                    {e?.photo && (
+                                        <div className="absolute inset-0 z-0">
+                                            <img src={e.photo} style={{ transform: `scale(${e.zoom || 1}) translate(${e.posX || 0}px, ${e.posY || 0}px)`, transformOrigin: 'center center' }} className={`w-full h-full object-cover f-${e.filter || 'none'}`} />
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 z-10" style={{ backgroundColor: `rgba(0,0,0,${e?.opacity ?? 0.3})` }} />
+                                    <div className="absolute top-6 left-6 right-6 flex justify-between items-start text-white opacity-90 z-20">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-light date-text leading-none">{e?.date}</span>
+                                            {e?.mood && <Icon name={e.mood} size={12} />}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {e?.habit_ex && <Icon name="dumbbell" size={12} />}
+                                            {e?.habit_wa && <Icon name="droplet" size={12} />}
+                                            {e?.habit_pi && <Icon name="pill" size={12} />}
+                                        </div>
+                                    </div>
+                                    <div className="absolute inset-0 p-10 flex flex-col justify-center items-center pointer-events-none z-20" 
+                                         style={{ 
+                                             alignItems: e?.textAlign || 'center',
+                                             transform: `translate(${e?.textPosX || 0}px, ${e?.textPosY || 0}px) scale(${e?.textZoom || 1})` 
+                                         }}>
+                                        <p className="serif leading-relaxed whitespace-pre-wrap" style={{ color: e?.textColor || '#fff', fontSize: `${e?.fontSize || 16}px`, textAlign: e?.textAlign || 'center' }}>{e?.content}</p>
+                                    </div>
+                                    <div className="absolute bottom-4 left-0 right-0 text-center z-20 pointer-events-none">
+                                        <p className="text-[7px] text-white/60 tracking-[0.2em] font-light uppercase">@Copyright 2026 EUNJI SHIN</p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center mt-5 px-2">
+                                    {/* 버튼 텍스트를 SHARE로 변경 */}
+                                    <button onClick={() => shareCard(e.id)} className="flex items-center gap-2 text-[10px] font-medium tracking-[0.2em] text-gray-500 border border-gray-200 px-4 py-2 rounded-full hover:bg-white transition-colors">
+                                        <Icon name="share-2" size={12} /> SHARE
+                                    </button>
+                                    <div className="flex gap-4 text-gray-200">
+                                        <button onClick={() => { setEditingEntry(e); setIsModalOpen(true); }}><Icon name="edit-3" size={16} /></button>
+                                        <button onClick={() => { if(confirm("Delete?")) setEntries(entries.filter(x => x.id !== e.id)) }}><Icon name="trash-2" size={16} /></button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+
+                    <footer className="py-10 text-center">
+                        <p className="text-[9px] text-gray-300 tracking-[0.2em] font-light uppercase">@Copyright 2026 EUNJI SHIN</p>
+                    </footer>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-in slide-in-from-bottom-full duration-500">
+                            <header className="px-6 pt-12 pb-2 flex justify-between items-center bg-[#F9F9F7]">
+                                <button onClick={() => setIsModalOpen(false)} className="text-gray-300 text-xs px-2 uppercase">Close</button>
+                                <h2 className="serif text-[11px] tracking-widest uppercase text-gray-800">New Moment</h2>
+                                <button onClick={() => document.getElementById('save-trigger').click()} className="text-black font-bold text-xs uppercase tracking-widest px-2">Done</button>
+                            </header>
+                            <div className="flex-1 overflow-y-auto p-4 bg-[#F9F9F7]">
+                                <Editor initialData={editingEntry} onSave={(data) => {
+                                    if(editingEntry) setEntries(entries.map(x => x.id === data.id ? data : x));
+                                    else setEntries([data, ...entries]);
+                                    setIsModalOpen(false);
+                                }} />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function Editor({ initialData, onSave }) {
+            const [tool, setTool] = useState('image');
+            const [content, setContent] = useState(initialData?.content || "");
+            const [photo, setPhoto] = useState(initialData?.photo || null);
+            const [zoom, setZoom] = useState(initialData?.zoom || 1.1);
+            const [posX, setPosX] = useState(initialData?.posX || 0);
+            const [posY, setPosY] = useState(initialData?.posY || 0);
+            const [textPosX, setTextPosX] = useState(initialData?.textPosX || 0);
+            const [textPosY, setTextPosY] = useState(initialData?.textPosY || 0);
+            const [textZoom, setTextZoom] = useState(initialData?.textZoom || 1);
+            const [opacity, setOpacity] = useState(initialData?.opacity ?? 0.3);
+            const [filter, setFilter] = useState(initialData?.filter || 'none');
+            const [textColor, setTextColor] = useState(initialData?.textColor || '#FFFFFF');
+            const [fontSize, setFontSize] = useState(initialData?.fontSize || 16);
+            const [textAlign, setTextAlign] = useState(initialData?.textAlign || 'center');
+            const [mood, setMood] = useState(initialData?.mood || null);
+            const [habitEx, setHabitEx] = useState(initialData?.habit_ex || false);
+            const [habitWa, setHabitWa] = useState(initialData?.habit_wa || false);
+            const [habitPi, setHabitPi] = useState(initialData?.habit_pi || false);
+
+            const dist = useRef(0);
+            const lastPos = useRef({ x: 0, y: 0 });
+            
+            const handleTouchStart = (e) => {
+                if (e.touches.length === 2) dist.current = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                else if (e.touches.length === 1) lastPos.current = { x: e.touches[0].pageX, y: e.touches[0].pageY };
+            };
+            
+            const handleTouchMove = (e) => {
+                if (e.touches.length === 2) {
+                    const newDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                    const delta = (newDist - dist.current) * 0.005;
+                    if (tool === 'text') setTextZoom(prev => Math.min(Math.max(prev + delta, 0.5), 5));
+                    else setZoom(prev => Math.min(Math.max(prev + delta, 0.5), 5));
+                    dist.current = newDist;
+                } else if (e.touches.length === 1) {
+                    const dx = (e.touches[0].pageX - lastPos.current.x);
+                    const dy = (e.touches[0].pageY - lastPos.current.y);
+                    if (tool === 'text') { setTextPosX(prev => prev + dx / textZoom); setTextPosY(prev => prev + dy / textZoom); }
+                    else { setPosX(prev => prev + dx / zoom); setPosY(prev => prev + dy / zoom); }
+                    lastPos.current = { x: e.touches[0].pageX, y: e.touches[0].pageY };
+                }
+            };
+
+            return (
+                <div className="space-y-4 pb-8">
+                    <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} className="relative aspect-[4/5] rounded-0 overflow-hidden bg-white shadow-lg pinch-area mx-auto w-[85%]">
+                        {photo && (
+                            <div className="absolute inset-0 overflow-hidden">
+                                <img src={photo} style={{ transform: `scale(${zoom}) translate(${posX}px, ${posY}px)`, transformOrigin: 'center center' }} className={`w-full h-full object-cover f-${filter}`} />
+                            </div>
+                        )}
+                        <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${opacity})` }} />
+                        <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-white opacity-90 z-20">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] font-light leading-none">{initialData?.date || getFormattedDate()}</span>
+                            </div>
+                        </div>
+                        <div className="absolute inset-0 p-8 flex flex-col justify-center items-center z-20 pointer-events-none" 
+                             style={{ 
+                                 alignItems: textAlign,
+                                 transform: `translate(${textPosX}px, ${textPosY}px) scale(${textZoom})`,
+                                 transformOrigin: 'center center'
+                             }}>
+                            <p className="serif leading-relaxed whitespace-pre-wrap" style={{ color: textColor, fontSize: `${fontSize}px`, textAlign: textAlign }}>{content || "Your Story"}</p>
+                        </div>
+                        <div className="absolute bottom-3 left-0 right-0 text-center z-20 pointer-events-none">
+                            <p className="text-[7px] text-white/60 tracking-[0.2em] font-light uppercase">@Copyright 2026 EUNJI SHIN</p>
+                        </div>
+                    </div>
+
+                    <div className="flex bg-gray-200/40 p-1 rounded-xl mx-auto w-[90%]">
+                        {[
+                            {id: 'image', icon: 'camera'},
+                            {id: 'text', icon: 'type'},
+                            {id: 'daily', icon: 'smile'}
+                        ].map(t => (
+                            <button key={t.id} onClick={() => setTool(t.id)} className={`flex-1 tab-btn rounded-lg flex justify-center transition-all ${tool === t.id ? 'bg-white text-black shadow-sm' : 'text-gray-300'}`}>
+                                <Icon name={t.icon} size={16} />
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="bg-white p-5 rounded-[24px] shadow-sm mx-auto w-[95%] min-h-[160px]">
+                        {tool === 'image' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                <label className="flex items-center justify-center gap-2 w-full py-2 bg-gray-50 rounded-lg text-[10px] font-bold text-gray-400">
+                                    LOAD IMAGE
+                                    <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files[0]; if(f){ const r = new FileReader(); r.onloadend = () => setPhoto(r.result); r.readAsDataURL(f); } }} />
+                                </label>
+                                <div className="flex gap-1">
+                                    {['none', 'warm', 'cool', 'mono'].map(f => (
+                                        <button key={f} onClick={() => setFilter(f)} className={`flex-1 py-2 rounded-md border text-[9px] font-bold ${filter === f ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-100'}`}>{f.toUpperCase()}</button>
+                                    ))}
+                                </div>
+                                <input type="range" min="0" max="0.8" step="0.01" value={opacity} onChange={e => setOpacity(parseFloat(e.target.value))} className="w-full" />
+                            </div>
+                        )}
+                        {tool === 'text' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                <textarea value={content} onChange={e => setContent(e.target.value)} className="w-full p-0 bg-transparent serif text-sm outline-none h-16 placeholder:text-gray-200" placeholder="Type here..." />
+                                <div className="space-y-3 pt-3 border-t border-gray-50 flex flex-col items-center">
+                                    <div className="flex gap-4 justify-center items-center w-full">
+                                        <div className="flex gap-2 pr-4 border-r border-gray-100">
+                                            {['left', 'center', 'right'].map(a => (
+                                                <button key={a} onClick={() => setTextAlign(a)} className={`p-1.5 rounded ${textAlign === a ? 'bg-gray-100 text-black' : 'text-gray-300'}`}>
+                                                    <Icon name={`align-${a}`} size={14} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-3 pl-1">
+                                            {['#FFFFFF', '#000000', '#FFD1DC', '#D1EAFF'].map(c => (
+                                                <button key={c} onClick={() => setTextColor(c)} className={`w-6 h-6 rounded-full border border-gray-100 ${textColor === c ? 'ring-2 ring-gray-300' : ''}`} style={{ backgroundColor: c }} />
+                                            ))}
+                                            <div className="relative flex items-center justify-center w-6 h-6 rounded-full border border-gray-100 overflow-hidden bg-gradient-to-tr from-yellow-200 via-pink-300 to-blue-400">
+                                                <Icon name="palette" size={12} className="absolute pointer-events-none text-white" />
+                                                <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} className="color-picker-input opacity-0" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="range" min="12" max="32" step="1" value={fontSize} onChange={e => setFontSize(parseInt(e.target.value))} className="w-full" />
+                                </div>
+                            </div>
+                        )}
+                        {tool === 'daily' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['smile', 'meh', 'frown'].map(m => (
+                                        <button key={m} onClick={() => setMood(m === mood ? null : m)} className={`py-3 rounded-xl flex justify-center transition-colors ${mood === m ? 'bg-black text-white shadow-md scale-[1.02]' : 'bg-gray-50 text-gray-300'}`}>
+                                            <Icon name={m} />
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 border-t border-gray-50 pt-4">
+                                    <button onClick={() => setHabitEx(!habitEx)} className={`py-3 rounded-xl flex justify-center transition-colors ${habitEx ? 'bg-black text-white shadow-md scale-[1.02]' : 'bg-gray-50 text-gray-300'}`}><Icon name="dumbbell" /></button>
+                                    <button onClick={() => setHabitWa(!habitWa)} className={`py-3 rounded-xl flex justify-center transition-colors ${habitWa ? 'bg-black text-white shadow-md scale-[1.02]' : 'bg-gray-50 text-gray-300'}`}><Icon name="droplet" /></button>
+                                    <button onClick={() => setHabitPi(!habitPi)} className={`py-3 rounded-xl flex justify-center transition-colors ${habitPi ? 'bg-black text-white shadow-md scale-[1.02]' : 'bg-gray-50 text-gray-300'}`}><Icon name="pill" /></button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <button id="save-trigger" className="hidden" onClick={() => {
+                        onSave({ 
+                            id: initialData?.id || Date.now().toString(), content, photo, zoom, posX, posY, 
+                            textPosX, textPosY, textZoom, opacity, filter, textColor, fontSize, textAlign,
+                            mood, habit_ex: habitEx, habit_wa: habitWa, habit_pi: habitPi, 
+                            date: initialData?.date || getFormattedDate() 
+                        });
+                    }}>Save</button>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
