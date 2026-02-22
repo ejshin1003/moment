@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>A Piece of Life</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --border: #efefef; --active: #000; --inactive: #8e8e93; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; -webkit-font-smoothing: antialiased; }
+        #diary-wrapper { padding: 30px 0; }
+        #diary-container { width: 320px; height: 480px; background: #f8f8f8; position: relative; overflow: hidden; border: 0.5px solid var(--border); }
+        .layer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+        
+        #photo-layer { z-index: 1; }
+        #text-layer { z-index: 5; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        #time-layer { z-index: 10; pointer-events: none; }
+        
+        body[data-tab="photo"] #photo-layer { pointer-events: auto; }
+        body[data-tab="text"] #text-layer { pointer-events: auto; }
+        body[data-tab="time"] #time-layer { pointer-events: auto; }
+
+        .draggable { position: absolute; touch-action: none; }
+        #main-photo { width: 100%; height: auto; display: block; }
+        
+        #display-time-stamp { 
+            top: 15px; left: 15px; font-size: 11px; font-weight: 600; color: #fff; 
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move; white-space: nowrap;
+        }
+
+        #fixed-footer { position: absolute; bottom: 15px; width: 100%; text-align: center; font-size: 9px; color: #fff; z-index: 10; letter-spacing: 2px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); pointer-events: none; }
+
+        #unified-text-box { font-size: 14px; color: #000; line-height: 1.7; padding: 15px; cursor: move; min-width: 200px; }
+        .text-row.list-style { display: flex; align-items: flex-start; margin-bottom: 2px; text-align: left; }
+        .text-row.list-style .row-icon { flex-shrink: 0; width: 35px; }
+        .text-row.list-style .row-content { flex-grow: 1; white-space: pre-wrap; word-break: break-all; }
+        .text-row.block-style { display: block; margin-bottom: 4px; white-space: pre-wrap; word-break: break-all; }
+
+        body[data-tab="text"] #unified-text-box { outline: 0.5px dashed rgba(0,0,0,0.2); }
+        body[data-tab="time"] #display-time-stamp { outline: 0.5px dashed rgba(255,255,255,0.8); }
+
+        .tab-bar { width: 100%; max-width: 400px; display: flex; border-top: 0.5px solid var(--border); position: fixed; bottom: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); z-index: 100; }
+        .tab-item { flex: 1; padding: 15px 0; text-align: center; font-size: 9px; font-weight: 700; color: var(--inactive); cursor: pointer; }
+        .tab-item.active { color: var(--active); }
+        
+        .panel { display: none; width: 320px; padding: 10px 0 120px 0; }
+        .panel.active { display: block; }
+        .control-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; align-items: center; }
+        .circle-btn { width: 40px; height: 40px; border-radius: 50%; border: 0.5px solid var(--border); background: #fdfdfd; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; }
+        .circle-btn.on { background: #000; color: #fff; }
+
+        #text-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); z-index: 200; width: 260px; }
+        #text-modal textarea { width: 100%; height: 80px; border: 1px solid #eee; border-radius: 8px; padding: 10px; box-sizing: border-box; font-family: inherit; outline: none; margin-bottom: 10px; }
+        
+        .frame-1 { border: 1px solid #fff !important; }
+        .frame-1::after { content:''; position:absolute; top:8px; left:8px; right:8px; bottom:8px; border:0.5px solid #fff; pointer-events:none; z-index:8; }
+        .frame-2 { border: 15px solid #fff !important; border-bottom: 55px solid #fff !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .frame-3 { border: 12px solid #1a1a1a !important; }
+    </style>
+</head>
+<body data-tab="photo">
+
+<div id="diary-wrapper">
+    <div id="diary-container">
+        <div id="time-layer" class="layer">
+            <div id="display-time-stamp" class="draggable" data-x="0" data-y="0">
+                <span id="ts-date"></span> <span id="ts-weather"></span>
+            </div>
+        </div>
+        <div id="photo-layer" class="layer"><img id="main-photo" class="draggable" data-x="0" data-y="0" src="" crossorigin="anonymous"></div>
+        <div id="text-layer" class="layer"><div id="unified-text-box" class="draggable" data-x="0" data-y="0"></div></div>
+        <div id="fixed-footer">A PIECE OF LIFE</div>
+    </div>
+</div>
+
+<div id="text-modal">
+    <div id="modal-label" style="font-size:10px; color:#999; margin-bottom:5px;"></div>
+    <textarea id="modal-input"></textarea>
+    <div class="control-row">
+        <button onclick="commitText()" style="background:#000; color:#fff; border:none; padding:10px 25px; border-radius:6px; font-size:12px;">OK</button>
+        <button onclick="closeModal()" style="border:none; background:none; color:#888; font-size:12px;">Cancel</button>
+    </div>
+</div>
+
+<div id="panel-photo" class="panel active">
+    <div class="control-row">
+        <input type="file" id="file-input" style="display:none">
+        <button class="circle-btn" onclick="document.getElementById('file-input').click()">IMG</button>
+        <button class="circle-btn" onclick="deleteData()" style="color:#ff3b30">DEL</button>
+    </div>
+    <div class="control-row"><input type="range" id="br-range" min="0.5" max="1.5" step="0.01" value="1" oninput="applyFilter()"></div>
+    <div class="control-row">
+        <button class="circle-btn" onclick="setFilter('none')">Orig</button>
+        <button class="circle-btn" onclick="setFilter('grayscale(1) contrast(1.1)')">B&W</button>
+        <button class="circle-btn" onclick="setFilter('brightness(1.1) saturate(0.8) contrast(0.9)')">Clean</button>
+        <button class="circle-btn" onclick="setFilter('sepia(0.3) brightness(1.05) saturate(1.1)')">Warm</button>
+    </div>
+</div>
+
+<div id="panel-text" class="panel">
+    <div class="control-row" id="icon-container">
+        <button class="circle-btn icon-btn" data-icon="✈" onclick="handleIconClick('✈', this)">✈</button>
+        <button class="circle-btn icon-btn" data-icon="⚲" onclick="handleIconClick('⚲', this)">⚲</button>
+        <button class="circle-btn icon-btn" data-icon="✉" onclick="handleIconClick('✉', this)">✉</button>
+        <button class="circle-btn" onclick="addCustomIcon()" style="color:#007aff;">+</button>
+    </div>
+    <div class="control-row">
+        <button class="circle-btn" onclick="setFont('Inter')">Gothic</button>
+        <button class="circle-btn" onclick="setFont('Noto Serif KR')" style="font-family:'Noto Serif KR'">명조</button>
+        <button class="circle-btn" onclick="setBoxAlign('left')">L</button>
+        <button class="circle-btn" onclick="setBoxAlign('center')">C</button>
+        <button class="circle-btn" onclick="setBoxAlign('right')">R</button>
+    </div>
+    <div class="control-row">
+        <button class="circle-btn" onclick="setBoxColor('#000')" style="background:#000;"></button>
+        <button class="circle-btn" onclick="setBoxColor('#fff')" style="background:#fff;"></button>
+        <div style="position:relative; width:40px; height:40px; overflow:hidden; border-radius:50%; border:0.5px solid var(--border);">
+            <input type="color" onchange="setBoxColor(this.value)" style="position:absolute; top:-10px; left:-10px; width:60px; height:60px; cursor:pointer;">
+        </div>
+    </div>
+</div>
+
+<div id="panel-time" class="panel">
+    <div class="control-row">
+        <button class="circle-btn" onclick="editTimeStamp()">Edit</button>
+        <button class="circle-btn" onclick="toggleTime()">Hide</button>
+        <button class="circle-btn" onclick="setTimeStyle('#fff')">White</button>
+        <button class="circle-btn" onclick="setTimeStyle('#000')">Black</button>
+    </div>
+    <div class="control-row">
+        <button class="circle-btn" onclick="setTimeFont('Inter')">Gothic</button>
+        <button class="circle-btn" onclick="setTimeFont('Noto Serif KR')" style="font-family:'Noto Serif KR'">명조</button>
+        <button class="circle-btn" id="time-bold-btn" onclick="toggleTimeBold()"><b>Bold</b></button>
+    </div>
+    <div class="control-row">
+        <label style="font-size:10px; color:#999;">Size</label>
+        <input type="range" min="8" max="40" step="1" value="11" oninput="document.getElementById('display-time-stamp').style.fontSize = this.value+'px'">
+    </div>
+</div>
+
+<div id="panel-frame" class="panel">
+    <div class="control-row">
+        <button class="circle-btn" onclick="setWeather('☼')">☼</button>
+        <button class="circle-btn" onclick="setWeather('☁')">☁</button>
+        <button class="circle-btn" onclick="setWeather('☔︎')">☔︎</button>
+        <button class="circle-btn" onclick="setWeather('❄︎')">❄︎</button>
+        <button class="circle-btn" onclick="promptEmoji()">⌨</button>
+    </div>
+    <div class="control-row">
+        <button class="circle-btn" onclick="applyFrame(1)">LINE</button>
+        <button class="circle-btn" onclick="applyFrame(2)">POLA</button>
+        <button class="circle-btn" onclick="applyFrame(3)">BOLD</button>
+        <button class="circle-btn" style="background:#000; color:#fff;" onclick="shareDiary()">↑</button>
+    </div>
+</div>
+
+<nav class="tab-bar">
+    <div class="tab-item active" onclick="switchTab('photo', this)">1. PHOTO</div>
+    <div class="tab-item" onclick="switchTab('text', this)">2. TEXT</div>
+    <div class="tab-item" onclick="switchTab('time', this)">3. TIME</div>
+    <div class="tab-item" onclick="switchTab('frame', this)">4. FRAME</div>
+</nav>
+
+<script>
+    let textData = {}; let currentIcon = ''; let currentAlign = 'left'; let currentBaseFilter = 'none';
+
+    window.onload = () => {
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        document.getElementById('ts-date').innerText = dateStr;
+    };
+
+    function switchTab(n, e) {
+        document.body.setAttribute('data-tab', n);
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        e.classList.add('active');
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + n).classList.add('active');
+    }
+
+    // PHOTO
+    function setFilter(f) { currentBaseFilter = f; applyFilter(); }
+    function applyFilter() { 
+        const br = document.getElementById('br-range').value; 
+        document.getElementById('main-photo').style.filter = `${currentBaseFilter === 'none' ? '' : currentBaseFilter} brightness(${br})`; 
+    }
+    document.getElementById('file-input').onchange = (e) => { 
+        const reader = new FileReader(); 
+        reader.onload = (ev) => { document.getElementById('main-photo').src = ev.target.result; }; 
+        reader.readAsDataURL(e.target.files[0]); 
+    };
+
+    // TEXT
+    function handleIconClick(i, b) { 
+        if (textData[i]) { delete textData[i]; b.classList.remove('on'); renderUnifiedText(); } 
+        else { currentIcon = i; document.getElementById('modal-label').innerText = `Write for ${i}`; document.getElementById('text-modal').style.display = 'block'; document.getElementById('modal-input').focus(); } 
+    }
+    function addCustomIcon() {
+        const custom = prompt("Enter Custom Icon:", "");
+        if (custom) {
+            const btn = document.createElement('button'); btn.className = 'circle-btn icon-btn'; btn.setAttribute('data-icon', custom); btn.innerText = custom;
+            btn.onclick = () => handleIconClick(custom, btn);
+            document.getElementById('icon-container').insertBefore(btn, document.getElementById('icon-container').lastElementChild);
+        }
+    }
+    function closeModal() { document.getElementById('text-modal').style.display = 'none'; document.getElementById('modal-input').value = ''; }
+    function commitText() { 
+        const val = document.getElementById('modal-input').value; 
+        if (val) { textData[currentIcon] = val; const btn = document.querySelector(`.icon-btn[data-icon="${currentIcon}"]`); if(btn) btn.classList.add('on'); renderUnifiedText(); } 
+        closeModal(); 
+    }
+    function renderUnifiedText() { 
+        const box = document.getElementById('unified-text-box'); box.innerHTML = ''; 
+        Object.keys(textData).forEach(i => { 
+            const r = document.createElement('div'); 
+            if (currentAlign === 'left') { r.className = 'text-row list-style'; r.innerHTML = `<span class="row-icon">${i} : </span><span class="row-content">${textData[i]}</span>`; } 
+            else { r.className = 'text-row block-style'; r.innerHTML = `${i} : ${textData[i]}`; } 
+            box.appendChild(r); 
+        }); 
+        box.style.textAlign = currentAlign; 
+    }
+    function setBoxColor(c) { document.getElementById('unified-text-box').style.color = c; }
+    function setBoxAlign(a) { currentAlign = a; renderUnifiedText(); }
+    function setFont(f) { document.getElementById('unified-text-box').style.fontFamily = f; }
+
+    // TIME
+    function editTimeStamp() {
+        const current = document.getElementById('ts-date').innerText;
+        const edited = prompt("Edit Date/Time:", current);
+        if(edited !== null) document.getElementById('ts-date').innerText = edited;
+    }
+    function toggleTime() {
+        const ts = document.getElementById('display-time-stamp');
+        ts.style.display = (ts.style.display === 'none') ? 'block' : 'none';
+    }
+    function setTimeStyle(color) {
+        const ts = document.getElementById('display-time-stamp');
+        ts.style.color = color;
+        ts.style.textShadow = (color === '#000') ? 'none' : '0 1px 3px rgba(0,0,0,0.4)';
+    }
+    function setTimeFont(f) { document.getElementById('display-time-stamp').style.fontFamily = f; }
+    function toggleTimeBold() {
+        const ts = document.getElementById('display-time-stamp');
+        const btn = document.getElementById('time-bold-btn');
+        if (ts.style.fontWeight === 'bold' || ts.style.fontWeight === '700') {
+            ts.style.fontWeight = '400';
+            btn.classList.remove('on');
+        } else {
+            ts.style.fontWeight = 'bold';
+            btn.classList.add('on');
+        }
+    }
+
+    // FRAME / WEATHER
+    function setWeather(w) { document.getElementById('ts-weather').innerText = (document.getElementById('ts-weather').innerText === w) ? '' : w; }
+    function promptEmoji() { const custom = prompt("Emoji:", ""); if(custom) setWeather(custom); }
+    function applyFrame(n) { document.getElementById('diary-container').classList.toggle('frame-'+n); }
+
+    // SAVE (Filter Issue Fixed)
+    function shareDiary() { 
+        const target = document.getElementById('diary-container');
+        html2canvas(target, { 
+            scale: 3, 
+            useCORS: true, 
+            allowTaint: true,
+            backgroundColor: null,
+            logging: false
+        }).then(canvas => { 
+            const link = document.createElement('a'); 
+            link.download = `A_Piece_Of_Life_${Date.now()}.png`; 
+            link.href = canvas.toDataURL("image/png"); 
+            link.click(); 
+        }); 
+    }
+    
+    function deleteData() { if(confirm("Reset All?")) location.reload(); }
+
+    function initInteract(el) { 
+        let x = 0, y = 0, scale = 1; 
+        interact(el).gesturable({ onmove: (e) => { scale *= (1 + e.ds); update(el, x, y, scale); } })
+        .draggable({ onmove: (e) => { x += e.dx; y += e.dy; update(el, x, y, scale); } }); 
+        el.addEventListener('wheel', (e) => { 
+            const tab = document.body.getAttribute('data-tab'); 
+            if (tab !== 'frame') { e.preventDefault(); scale += e.deltaY * -0.001; update(el, x, y, scale); } 
+        }, {passive: false}); 
+    }
+    function update(el, x, y, s) { el.style.transform = `translate(${x}px, ${y}px) scale(${s})`; }
+
+    initInteract(document.getElementById('main-photo'));
+    initInteract(document.getElementById('unified-text-box'));
+    initInteract(document.getElementById('display-time-stamp'));
+</script>
+</body>
+</html>
