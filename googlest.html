@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>A Piece of Life - Google Maps UI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --border: #efefef; --active: #000; --inactive: #8e8e93; --theme-color: #1a73e8; }
+        body { font-family: 'Inter', sans-serif; background: #f0f0f0; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        
+        #diary-wrapper { padding: 20px 0; }
+        #diary-container { 
+            width: 340px; height: 520px; background: #fff; position: relative; 
+            overflow: hidden; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+        }
+
+        /* 사진 영역 & 상단 아이콘 */
+        #photo-viewport { width: 100%; height: 62%; overflow: hidden; position: relative; background: #eee; }
+        #main-photo { width: 100%; height: auto; display: block; }
+        
+        .top-icons { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 15px; box-sizing: border-box; z-index: 30; pointer-events: none; }
+        .icon-circle { 
+            width: 32px; height: 32px; background: rgba(0,0,0,0.4); border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; pointer-events: auto;
+        }
+        .right-icons { display: flex; gap: 8px; }
+
+        /* 바텀 시트 정보창 */
+        #bottom-sheet { 
+            width: 100%; height: 38%; background: #fff; position: absolute; bottom: 0; 
+            border-top-left-radius: 20px; border-top-right-radius: 20px; 
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.05); padding: 12px 20px; box-sizing: border-box; z-index: 20;
+        }
+        .handle { width: 36px; height: 4px; background: #e0e0e0; border-radius: 2px; margin: 0 auto 12px; }
+        
+        #info-title { font-size: 19px; font-weight: 700; margin-bottom: 3px; color: #202124; display: flex; justify-content: space-between; align-items: center; }
+        #info-stats { display: flex; align-items: center; font-size: 13px; color: #70757a; margin-bottom: 5px; }
+        .stars { color: #fbbc04; margin-right: 4px; letter-spacing: -1px; font-size: 14px; }
+        #info-desc { font-size: 13px; color: #3c4043; margin-bottom: 3px; }
+        #info-status { font-size: 13px; color: var(--theme-color); font-weight: 600; }
+
+        #map-actions { display: flex; gap: 8px; margin-top: 15px; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
+        .action-btn { 
+            flex-shrink: 0; border: 1px solid #dadce0; border-radius: 20px; 
+            padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--theme-color); 
+            display: flex; align-items: center; gap: 6px; white-space: nowrap;
+        }
+
+        /* 컨트롤 패널 */
+        .tab-bar { width: 100%; max-width: 400px; display: flex; border-top: 0.5px solid var(--border); position: fixed; bottom: 0; background: #fff; z-index: 100; }
+        .tab-item { flex: 1; padding: 15px 0; text-align: center; font-size: 9px; font-weight: 700; color: var(--inactive); cursor: pointer; }
+        .tab-item.active { color: var(--active); }
+        .panel { display: none; width: 340px; padding: 10px 0 120px 0; }
+        .panel.active { display: block; }
+        .control-row { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; align-items: center; }
+        .circle-btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border); background: #fff; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .circle-btn.on { background: #000; color: #fff; }
+        
+        input[type="text"] { width: 85%; padding: 9px; border: 1px solid #ddd; border-radius: 8px; font-size: 12px; outline: none; }
+    </style>
+</head>
+<body data-tab="photo">
+
+<div id="diary-wrapper">
+    <div id="diary-container">
+        <div id="photo-viewport">
+            <div class="top-icons">
+                <div class="icon-circle">〈</div>
+                <div class="right-icons">
+                    <div class="icon-circle">📤</div>
+                    <div class="icon-circle">⋯</div>
+                </div>
+            </div>
+            <img id="main-photo" class="draggable" src="" crossorigin="anonymous">
+        </div>
+
+        <div id="bottom-sheet">
+            <div class="handle"></div>
+            <div id="info-title">
+                <span>즐거운 우리집</span>
+                <span style="font-size: 18px; color:#70757a;">✕</span>
+            </div>
+            <div id="info-stats">
+                <span id="info-rating-num" style="margin-right:4px; font-weight:bold; color:#202124;">4.8</span>
+                <span class="stars" id="info-stars">★★★★★</span>
+                <span id="info-reviews">(466)</span>
+            </div>
+            <div id="info-desc">평화로운 식당 · 가격: 12,000~23,000</div>
+            <div id="info-status">영업 중 · 오후 10:00에 영업 종료</div>
+
+            <div id="map-actions">
+                <div class="action-btn">🗺 경로</div>
+                <div class="action-btn">📞 통화</div>
+                <div class="action-btn">📁 디렉토리</div>
+                <div class="action-btn">🔖 저장</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="panel-photo" class="panel active">
+    <div class="control-row">
+        <input type="file" id="file-input" style="display:none" accept="image/*">
+        <button class="circle-btn" onclick="document.getElementById('file-input').click()">이미지</button>
+        <button class="circle-btn" onclick="setFilter('none')">원본</button>
+        <button class="circle-btn" onclick="setFilter('bw')">흑백</button>
+        <button class="circle-btn" onclick="setFilter('warm')">따뜻함</button>
+    </div>
+    <div class="control-row">
+        <label style="font-size:10px">밝기</label>
+        <input type="range" id="br-range" min="0.5" max="1.5" step="0.01" value="1" oninput="applyFilter()">
+    </div>
+</div>
+
+<div id="panel-info" class="panel">
+    <div class="control-row"><input type="text" id="edit-title" placeholder="장소명 수정" oninput="updateInfo()"></div>
+    <div class="control-row">
+        <input type="text" id="edit-rating" style="width:20%" placeholder="4.8" oninput="updateInfo()">
+        <input type="text" id="edit-reviews" style="width:30%" placeholder="(466)" oninput="updateInfo()">
+        <input type="color" id="edit-color" value="#1a73e8" oninput="updateThemeColor(this.value)" style="width:35px; height:35px; border:none; background:none; cursor:pointer;">
+    </div>
+    <div class="control-row">
+        <button class="circle-btn" onclick="setStars(1)">1★</button>
+        <button class="circle-btn" onclick="setStars(2)">2★</button>
+        <button class="circle-btn" onclick="setStars(3)">3★</button>
+        <button class="circle-btn" onclick="setStars(4)">4★</button>
+        <button class="circle-btn" onclick="setStars(5)">5★</button>
+    </div>
+    <div class="control-row"><input type="text" id="edit-desc" placeholder="설명 (카테고리 · 가격)" oninput="updateInfo()"></div>
+    <div class="control-row"><input type="text" id="edit-status" placeholder="영업 상태 정보" oninput="updateInfo()"></div>
+</div>
+
+<div id="panel-save" class="panel">
+    <div class="control-row">
+        <button class="circle-btn" style="background:#000; color:#fff; width:150px; border-radius:12px; font-weight:bold;" onclick="saveMap()">완성 이미지 저장</button>
+    </div>
+</div>
+
+<nav class="tab-bar">
+    <div class="tab-item active" onclick="switchTab('photo', this)">1. PHOTO</div>
+    <div class="tab-item" onclick="switchTab('info', this)">2. INFO</div>
+    <div class="tab-item" onclick="switchTab('save', this)">3. SAVE</div>
+</nav>
+
+<script>
+    let originalImg = null;
+    let filterType = 'none';
+
+    function switchTab(n, e) {
+        document.body.setAttribute('data-tab', n);
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        e.classList.add('active');
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + n).classList.add('active');
+    }
+
+    // 사진 필터 & 밝기 (실시간 캔버스 굽기 방식)
+    document.getElementById('file-input').onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => { originalImg = img; applyFilter(); };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    };
+
+    function setFilter(t) { filterType = t; applyFilter(); }
+    function applyFilter() {
+        if (!originalImg) return;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = originalImg.width;
+        canvas.height = originalImg.height;
+        const br = document.getElementById('br-range').value;
+        
+        let filterStr = `brightness(${br})`;
+        if(filterType === 'bw') filterStr += ' grayscale(1)';
+        if(filterType === 'warm') filterStr += ' sepia(0.3) saturate(1.2)';
+        
+        ctx.filter = filterStr;
+        ctx.drawImage(originalImg, 0, 0);
+        document.getElementById('main-photo').src = canvas.toDataURL("image/jpeg", 0.95);
+    }
+
+    // 별점 및 정보 업데이트
+    function setStars(n) {
+        document.getElementById('info-stars').innerText = "★".repeat(n) + "☆".repeat(5-n);
+        // 별점에 맞춰 숫자도 자동 변경되게 하려면 아래 주석 해제
+        // document.getElementById('info-rating-num').innerText = n + ".0";
+    }
+
+    function updateInfo() {
+        document.getElementById('info-title').firstElementChild.innerText = document.getElementById('edit-title').value || "일본 우동집";
+        document.getElementById('info-rating-num').innerText = document.getElementById('edit-rating').value || "4.8";
+        document.getElementById('info-reviews').innerText = document.getElementById('edit-reviews').value || "(466)";
+        document.getElementById('info-desc').innerText = document.getElementById('edit-desc').value || "돈까스 전문식당 · ¥2,000~3,000";
+        document.getElementById('info-status').innerText = document.getElementById('edit-status').value || "영업 중 · 오후 10:00에 영업 종료";
+    }
+
+    function updateThemeColor(val) {
+        document.documentElement.style.setProperty('--theme-color', val);
+    }
+
+    // 저장 (필터 반영 확실히 되도록)
+    function saveMap() {
+        const target = document.getElementById('diary-container');
+        html2canvas(target, { 
+            scale: 3, 
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: "#ffffff"
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `GoogleMaps_Diary_${Date.now()}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        });
+    }
+
+    // InteractJS
+    function initInteract(el) {
+        let x = 0, y = 0, s = 1;
+        interact(el).draggable({
+            onmove: (e) => {
+                x += e.dx; y += e.dy;
+                e.target.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+            }
+        }).gesturable({
+            onmove: (e) => {
+                s *= (1 + e.ds);
+                e.target.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+            }
+        });
+    }
+    initInteract(document.getElementById('main-photo'));
+</script>
+</body>
+</html>
