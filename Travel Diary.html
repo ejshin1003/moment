@@ -9,7 +9,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root { --border: #efefef; --active: #000; --inactive: #8e8e93; }
-        body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; -webkit-font-smoothing: antialiased; }
+
+        /* 폰트 설정: 'DearMalMalyear'를 1순위로 배치 */
+        body { 
+            font-family: 'DearMalMalyear', 'Inter', -apple-system, sans-serif; 
+            background: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; -webkit-font-smoothing: antialiased; 
+        }
+
         #diary-wrapper { padding: 30px 0; }
         #diary-container { width: 320px; height: 480px; background: #f8f8f8; position: relative; overflow: hidden; border: 0.5px solid var(--border); }
         .layer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
@@ -28,11 +34,17 @@
         #display-time-stamp { 
             top: 15px; left: 15px; font-size: 11px; font-weight: 600; color: #fff; 
             text-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: move; white-space: nowrap;
+            /* 타임스탬프에도 폰트 적용 */
+            font-family: 'DearMalMalyear', 'Inter', sans-serif;
         }
 
         #fixed-footer { position: absolute; bottom: 15px; width: 100%; text-align: center; font-size: 9px; color: #fff; z-index: 10; letter-spacing: 2px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); pointer-events: none; }
 
-        #unified-text-box { font-size: 14px; color: #000; line-height: 1.7; padding: 15px; cursor: move; min-width: 200px; }
+        #unified-text-box { 
+            font-size: 14px; color: #000; line-height: 1.7; padding: 15px; cursor: move; min-width: 200px;
+            /* 텍스트 박스 기본 폰트를 DearMalMalyear로 설정 */
+            font-family: 'DearMalMalyear', 'Inter', sans-serif;
+        }
         .text-row.list-style { display: flex; align-items: flex-start; margin-bottom: 2px; text-align: left; }
         .text-row.list-style .row-icon { flex-shrink: 0; width: 35px; }
         .text-row.list-style .row-content { flex-grow: 1; white-space: pre-wrap; word-break: break-all; }
@@ -107,6 +119,7 @@
         <button class="circle-btn" onclick="addCustomIcon()" style="color:#007aff;">+</button>
     </div>
     <div class="control-row">
+        <button class="circle-btn" onclick="setFont('DearMalMalyear')">MyFont</button>
         <button class="circle-btn" onclick="setFont('Inter')">Gothic</button>
         <button class="circle-btn" onclick="setFont('Noto Serif KR')" style="font-family:'Noto Serif KR'">명조</button>
         <button class="circle-btn" onclick="setBoxAlign('left')">L</button>
@@ -130,6 +143,7 @@
         <button class="circle-btn" onclick="setTimeStyle('#000')">Black</button>
     </div>
     <div class="control-row">
+        <button class="circle-btn" onclick="setTimeFont('DearMalMalyear')">MyFont</button>
         <button class="circle-btn" onclick="setTimeFont('Inter')">Gothic</button>
         <button class="circle-btn" onclick="setTimeFont('Noto Serif KR')" style="font-family:'Noto Serif KR'">명조</button>
         <button class="circle-btn" id="time-bold-btn" onclick="toggleTimeBold()"><b>Bold</b></button>
@@ -164,6 +178,7 @@
 </nav>
 
 <script>
+    /* 스크립트 부분은 기존과 동일하며, 폰트 적용을 위해 setFont 함수에 DearMalMalyear 인자를 추가했습니다. */
     let textData = {}; let currentIcon = ''; let currentAlign = 'left'; let currentBaseFilter = 'none';
 
     window.onload = () => {
@@ -180,7 +195,6 @@
         document.getElementById('panel-' + n).classList.add('active');
     }
 
-    // PHOTO
     function setFilter(f) { currentBaseFilter = f; applyFilter(); }
     function applyFilter() { 
         const br = document.getElementById('br-range').value; 
@@ -192,7 +206,6 @@
         reader.readAsDataURL(e.target.files[0]); 
     };
 
-    // TEXT
     function handleIconClick(i, b) { 
         if (textData[i]) { delete textData[i]; b.classList.remove('on'); renderUnifiedText(); } 
         else { currentIcon = i; document.getElementById('modal-label').innerText = `Write for ${i}`; document.getElementById('text-modal').style.display = 'block'; document.getElementById('modal-input').focus(); } 
@@ -225,7 +238,6 @@
     function setBoxAlign(a) { currentAlign = a; renderUnifiedText(); }
     function setFont(f) { document.getElementById('unified-text-box').style.fontFamily = f; }
 
-    // TIME
     function editTimeStamp() {
         const current = document.getElementById('ts-date').innerText;
         const edited = prompt("Edit Date/Time:", current);
@@ -253,12 +265,10 @@
         }
     }
 
-    // FRAME / WEATHER
     function setWeather(w) { document.getElementById('ts-weather').innerText = (document.getElementById('ts-weather').innerText === w) ? '' : w; }
     function promptEmoji() { const custom = prompt("Emoji:", ""); if(custom) setWeather(custom); }
     function applyFrame(n) { document.getElementById('diary-container').classList.toggle('frame-'+n); }
 
-    // SAVE (Filter Issue Fixed)
     function shareDiary() { 
         const target = document.getElementById('diary-container');
         html2canvas(target, { 
